@@ -2,7 +2,7 @@ pipeline {
     agent any
     tools {
         maven 'Maven3'  // Set in Jenkins tools
-        jdk 'jdk17'     // Set in Jenkins tools
+        ##jdk 'jdk17'     // Set in Jenkins tools
     }
     environment {
         scannerHome = tool 'SonarScanner'
