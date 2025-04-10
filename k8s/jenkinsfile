@@ -2,7 +2,7 @@ pipeline {
   agent any
 
   environment {
-    IMAGE = "your-dockerhub-username/springboot-hello-world"
+    IMAGE = "sujeetsr07/springboot-hello-world"
     TAG = "latest"
   }
 
