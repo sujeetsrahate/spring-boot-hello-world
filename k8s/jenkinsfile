@@ -1,0 +1,40 @@
+pipeline {
+  agent any
+
+  environment {
+    IMAGE = "your-dockerhub-username/springboot-hello-world"
+    TAG = "latest"
+  }
+
+  stages {
+    stage('Build') {
+      steps {
+        sh 'mvn clean package'
+      }
+    }
+
+    stage('SonarQube Analysis') {
+      steps {
+        withSonarQubeEnv('SonarQube') {
+          sh 'mvn sonar:sonar'
+        }
+      }
+    }
+
+    stage('Docker Build & Push') {
+      steps {
+        script {
+          sh "docker build -t ${IMAGE}:${TAG} ."
+          sh "docker push ${IMAGE}:${TAG}"
+        }
+      }
+    }
+
+    stage('Deploy to Kubernetes') {
+      steps {
+        sh 'kubectl apply -f k8s/deployment.yaml'
+        sh 'kubectl apply -f k8s/service.yaml'
+      }
+    }
+  }
+}
