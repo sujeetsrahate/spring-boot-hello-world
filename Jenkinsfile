@@ -1,42 +1,56 @@
 pipeline {
-    agent any
-    tools {
-        maven 'Maven3'  // Set in Jenkins tools
-        ##jdk 'jdk17'     // Set in Jenkins tools
+
+  agent any
+
+  environment {
+    REGISTRY = 'sujeetsr07/springboot-hello-world'
+    IMAGE_TAG = "${GIT_COMMIT.take(7)}"
+  }
+
+  stages {
+
+    stage('Build & Test') {
+      steps {
+        script {
+          sh 'mvn clean package -DskipTests=false'
+        }
+      }
     }
-    environment {
-        scannerHome = tool 'SonarScanner'
+
+    stage('Docker Build & Push') {
+      when {
+        branch 'develop'
+      }
+      steps {
+        withCredentials([usernamePassword(credentialsId: 'dockerhub', usernameVariable: 'DOCKERHUB_USER', passwordVariable: 'DOCKERHUB_PASS')]) {
+          script {
+            sh """
+              docker build -t $REGISTRY:$IMAGE_TAG .
+              echo $DOCKERHUB_PASS | docker login -u $DOCKERHUB_USER --password-stdin
+              docker push $REGISTRY:$IMAGE_TAG
+            """
+          }
+        }
+      }
     }
-    stages {
-        stage('Build') {
-            steps {
-                sh 'mvn clean package'
-            }
+
+    stage('Deploy to Kubernetes') {
+      when {
+        branch 'develop'
+      }
+      steps {
+        withCredentials([file(credentialsId: 'kubeconfig-credential-id', variable: 'KUBECONFIG')]) {
+          script {
+            sh """
+              sed -i 's|{{IMAGE}}|$REGISTRY:$IMAGE_TAG|' deployment.yaml
+              kubectl apply -f deployment.yaml
+              kubectl apply -f service.yaml
+            """
+          }
         }
-        stage('SonarQube Analysis') {
-            steps {
-                withSonarQubeEnv('SonarQube') {
-                    sh "${scannerHome}/bin/sonar-scanner"
-                }
-            }
-        }
-        stage('Docker Build & Push') {
-            when {
-                branch 'develop'
-            }
-            steps {
-                sh 'docker build -t springboot-app:v1 .'
-                // Optional: Push to registry
-            }
-        }
-        stage('Kubernetes Deploy') {
-            when {
-                branch 'develop'
-            }
-            steps {
-                sh 'kubectl apply -f deployment.yaml'
-                sh 'kubectl apply -f service.yaml'
-            }
-        }
+      }
     }
+
+  }
+
 }
